@@ -1,0 +1,32 @@
+---
+import AdminLayout from '../../layouts/AdminLayout.astro';
+import { db } from '../../firebase/admin.js';
+
+const resellersSnapshot = await db.collection('resellers').get();
+const resellers = resellersSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+---
+
+<AdminLayout title="Resellers">
+  <div class="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md">
+    <table class="w-full table-auto">
+      <thead>
+        <tr class="bg-gray-200 dark:bg-gray-700">
+          <th class="px-4 py-2">ID</th>
+          <th class="px-4 py-2">Name</th>
+          <th class="px-4 py-2">Email</th>
+          <th class="px-4 py-2">Products</th>
+        </tr>
+      </thead>
+      <tbody>
+        {resellers.map(reseller => (
+          <tr class="border-b dark:border-gray-700">
+            <td class="px-4 py-2">{reseller.id}</td>
+            <td class="px-4 py-2">{reseller.name}</td>
+            <td class="px-4 py-2">{reseller.email}</td>
+            <td class="px-4 py-2">{reseller.products.join(', ')}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  </div>
+</AdminLayout>

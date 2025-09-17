@@ -1,0 +1,23 @@
+---
+import AdminLayout from '../../layouts/AdminLayout.astro';
+import { db } from '../../firebase/admin.js';
+
+const resellersSnapshot = await db.collection('resellers').get();
+const totalResellers = resellersSnapshot.size;
+
+const productsSnapshot = await db.collection('products').get();
+const totalProducts = productsSnapshot.size;
+---
+
+<AdminLayout title="Dashboard">
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+    <div class="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md">
+      <h2 class="text-xl font-bold text-gray-800 dark:text-gray-200">Total Resellers</h2>
+      <p class="text-4xl font-bold text-blue-500 mt-4">{totalResellers}</p>
+    </div>
+    <div class="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md">
+      <h2 class="text-xl font-bold text-gray-800 dark:text-gray-200">Total Products</h2>
+      <p class="text-4xl font-bold text-green-500 mt-4">{totalProducts}</p>
+    </div>
+  </div>
+</AdminLayout>

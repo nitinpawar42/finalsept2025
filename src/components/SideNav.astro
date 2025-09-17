@@ -1,0 +1,48 @@
+---
+const { url } = Astro;
+const getLinkClass = (path) => {
+  const isActive = url.pathname === path;
+  return `block py-2.5 px-4 rounded transition duration-200 hover:bg-blue-700 ${isActive ? 'bg-blue-700' : ''}`;
+};
+---
+
+<aside class="bg-blue-600 text-white w-64 min-h-screen p-4 flex flex-col justify-between">
+  <nav>
+    <a href="/admin" class={getLinkClass('/admin')}>Dashboard</a>
+    <a href="/admin/products" class={getLinkClass('/admin/products')}>My Products</a>
+    <a href="/admin/manage-products" class={getLinkClass('/admin/manage-products')}>Manage Products</a>
+    <a href="/admin/resellers" class={getLinkClass('/admin/resellers')}>Resellers</a>
+    <a href="/admin/approvals" class={getLinkClass('/admin/approvals')}>Reseller Approvals</a>
+    <a href="/admin/profile" class={getLinkClass('/admin/profile')}>Profile</a>
+    <a href="/admin/customize" class={getLinkClass('/admin/customize')}>Customize Page</a>
+    <a id="view-public-page" href="#" class={getLinkClass('#')} target="_blank">View Public Page</a>
+  </nav>
+
+  <div>
+    <button id="logout-btn" class="w-full bg-red-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-red-700">Logout</button>
+  </div>
+</aside>
+
+<script>
+  import { auth } from '../firebase/client';
+  import { signOut, onAuthStateChanged } from 'firebase/auth';
+
+  const logoutBtn = document.getElementById('logout-btn');
+  logoutBtn.addEventListener('click', async () => {
+    try {
+      await signOut(auth);
+      window.location.href = '/login';
+    } catch (error) {
+      console.error('Error signing out:', error);
+    }
+  });
+
+  const viewPublicPageBtn = document.getElementById('view-public-page');
+  onAuthStateChanged(auth, (user) => {
+    if (user) {
+      viewPublicPageBtn.href = `/resellers/${user.uid}`;
+    } else {
+      viewPublicPageBtn.style.display = 'none';
+    }
+  });
+</script>

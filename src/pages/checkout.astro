@@ -1,0 +1,195 @@
+---
+import { getFirestore, collection, query, where, getDocs, doc, getDoc } from 'firebase/firestore';
+import { getAuth } from 'firebase/auth';
+import { getApps, initializeApp } from 'firebase/app';
+
+const firebaseConfig = {
+  apiKey: "AIzaSyABOmg9FZo711ujsPCb7XOupDM4wh-Av9o",
+  authDomain: "recent2025-8c891.firebaseapp.com",
+  projectId: "recent2025-8c891",
+  storageBucket: "recent2025-8c891.firebasestorage.app",
+  messagingSenderId: "815105434520",
+  appId: "1:815105434520:web:833e4efb0224c9289e81ed"
+};
+
+if (!getApps().length) {
+  initializeApp(firebaseConfig);
+}
+
+const db = getFirestore();
+const auth = getAuth();
+---
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Checkout</title>
+  <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+</head>
+<body>
+  <h1>Checkout</h1>
+  <div>
+    <label for="customer">Select a customer:</label>
+    <select id="customer"></select>
+  </div>
+  <div>
+    <label for="pincode">Enter your pincode to calculate shipping:</label>
+    <input type="text" id="pincode" />
+    <button id="calculate-shipping">Calculate</button>
+    <p id="shipping-cost"></p>
+  </div>
+  <button id="rzp-button1">Pay with Razorpay</button>
+
+  <script define:vars={{ db, auth }}>
+    const calculateShippingBtn = document.getElementById('calculate-shipping');
+    const pincodeInput = document.getElementById('pincode');
+    const shippingCostEl = document.getElementById('shipping-cost');
+    const payButton = document.getElementById('rzp-button1');
+    const customerSelect = document.getElementById('customer');
+
+    let shippingCost = 0;
+    let cartItems = [];
+    let userId = null;
+    let totalAmount = 0;
+    let totalWeight = 0;
+    let totalLength = 0;
+    let totalBreadth = 0;
+    let totalHeight = 0;
+    const shippingAddress = "123, Main Street, Anytown, USA"; // This will be dynamic later
+
+
+    auth.onAuthStateChanged(async (user) => {
+        if(user){
+            userId = user.uid;
+            const cartRef = collection(db, 'cart');
+            const q = query(cartRef, where("userId", "==", userId));
+            const querySnapshot = await getDocs(q);
+            cartItems = await Promise.all(querySnapshot.docs.map(async (cartDoc) => {
+                const cartItem = cartDoc.data();
+                const productRef = doc(db, "products", cartItem.productId);
+                const productSnap = await getDoc(productRef);
+                const product = productSnap.data();
+                totalAmount += product.price * cartItem.quantity;
+                totalWeight += product.weight * cartItem.quantity;
+                totalLength += product.length * cartItem.quantity;
+                totalBreadth += product.breadth * cartItem.quantity;
+                totalHeight += product.height * cartItem.quantity;
+                return { ...cartItem, product, id: cartDoc.id };
+            }));
+
+            const customersRef = collection(db, 'customers');
+            const q2 = query(customersRef, where("resellerId", "==", userId));
+            const customersSnapshot = await getDocs(q2);
+            customersSnapshot.forEach((doc) => {
+              const customer = doc.data();
+              const option = document.createElement('option');
+              option.value = doc.id;
+              option.textContent = customer.name;
+              customerSelect.appendChild(option);
+            });
+        }
+    });
+
+
+    calculateShippingBtn.addEventListener('click', async () => {
+        const response = await fetch('/api/calculate-shipping', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                weight: totalWeight,
+                length: totalLength,
+                breadth: totalBreadth,
+                height: totalHeight,
+                destinationPincode: pincodeInput.value
+            })
+        });
+        const data = await response.json();
+        shippingCost = data.shippingCost;
+        shippingCostEl.innerText = `Shipping Cost: ₹${shippingCost}`;
+        payButton.disabled = false;
+    });
+
+    payButton.disabled = true;
+
+    document.getElementById('rzp-button1').onclick = async function(e){
+        const finalAmount = totalAmount + shippingCost;
+        const customerId = customerSelect.value;
+
+        // Create an order in our database
+        const createOrderResponse = await fetch('/api/create-order', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ 
+                userId,
+                customerId,
+                cartItems, 
+                shippingAddress, 
+                totalAmount, 
+                shippingCost
+            })
+        });
+        const { orderId } = await createOrderResponse.json();
+
+        const response = await fetch('/api/create-razorpay-order', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ amount: finalAmount, orderId })
+        });
+
+        const order = await response.json();
+
+        var options = {
+            "key": "rzp_test_1DPQoVzVv4F1Zz", // Enter the Key ID generated from the Dashboard
+            "amount": order.amount, // Amount is in currency subunits. Default currency is INR.
+            "currency": "INR",
+            "name": "Your Company Name",
+            "description": "Test Transaction",
+            "image": "https://example.com/your_logo.jpg",
+            "order_id": order.id,
+            "handler": async function (response){
+                const verificationResponse = await fetch('/api/verify-payment', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        razorpay_payment_id: response.razorpay_payment_id,
+                        razorpay_order_id: response.razorpay_order_id,
+                        razorpay_signature: response.razorpay_signature,
+                        orderId
+                    })
+                });
+                const verificationResult = await verificationResponse.json();
+                if (verificationResult.success) {
+                    window.location.href = '/confirmation';
+                } else {
+                    alert("Payment verification failed. Please try again.");
+                }
+            },
+            "prefill": {
+                "name": "Gaurav Kumar",
+                "email": "gaurav.kumar@example.com",
+                "contact": "9999999999"
+            },
+            "notes": {
+                "address": "Razorpay Corporate Office"
+            },
+            "theme": {
+                "color": "#3399cc"
+            }
+        };
+        var rzp1 = new Razorpay(options);
+        rzp1.open();
+        e.preventDefault();
+    }
+  </script>
+</body>
+</html>

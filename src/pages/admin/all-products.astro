@@ -1,0 +1,65 @@
+---
+import AdminLayout from '../../layouts/AdminLayout.astro';
+import { db } from '../../firebase/admin';
+
+const productsRef = db.collection('products');
+const snapshot = await productsRef.get();
+const products = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+---
+
+<AdminLayout title="All Products">
+  <div class="bg-white dark:bg-gray-800 p-8 rounded-lg shadow-md">
+    <h2 class="text-2xl font-bold mb-6 text-gray-800 dark:text-gray-200">All Products</h2>
+    <table class="min-w-full bg-white dark:bg-gray-800">
+      <thead>
+        <tr>
+          <th class="py-2 px-4 border-b dark:border-gray-700 text-left text-gray-800 dark:text-gray-200">Name</th>
+          <th class="py-2 px-4 border-b dark:border-gray-700 text-left text-gray-800 dark:text-gray-200">Price</th>
+          <th class="py-2 px-4 border-b dark:border-gray-700 text-left text-gray-800 dark:text-gray-200">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {products.map(product => (
+          <tr key={product.id}>
+            <td class="py-2 px-4 border-b dark:border-gray-700 text-gray-800 dark:text-gray-200">{product.name}</td>
+            <td class="py-2 px-4 border-b dark:border-gray-700 text-gray-800 dark:text-gray-200">${product.price}</td>
+            <td class="py-2 px-4 border-b dark:border-gray-700">
+              <button class="add-to-store-btn bg-green-500 text-white font-bold py-1 px-3 rounded-lg hover:bg-green-700" data-product-id={product.id}>Add to My Store</button>
+            </td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  </div>
+
+  <script>
+    import { auth, db } from '../../firebase/client';
+    import { doc, setDoc, collection } from 'firebase/firestore';
+    import { onAuthStateChanged } from 'firebase/auth';
+
+    onAuthStateChanged(auth, (user) => {
+      if (!user) {
+        window.location.href = '/login';
+      }
+    });
+
+    document.querySelectorAll('.add-to-store-btn').forEach(button => {
+      button.addEventListener('click', async (e) => {
+        const productId = e.target.dataset.productId;
+        const user = auth.currentUser;
+
+        if (user) {
+          try {
+            const resellerId = user.uid;
+            const productRef = doc(db, 'resellers', resellerId, 'products', productId);
+            await setDoc(productRef, { productId });
+            alert('Product added to your store!');
+          } catch (error) {
+            console.error('Error adding product to store:', error);
+            alert('Error adding product to your store. Please try again.');
+          }
+        }
+      });
+    });
+  </script>
+</AdminLayout>

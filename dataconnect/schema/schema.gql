@@ -1,0 +1,41 @@
+type User @table {
+  displayName: String!
+  createdAt: Timestamp!
+  email: String
+  photoUrl: String
+}
+
+type ApplicationType @table {
+  name: String!
+}
+
+type ApplicationStatus @table {
+  name: String!
+}
+
+type Application @table {
+  title: String!
+  organization: String!
+  submissionDeadline: Timestamp!
+  status: ApplicationStatus!
+  createdAt: Timestamp!
+  description: String
+  link: String
+  notes: String
+  user: User
+  applicationType: ApplicationType
+}
+
+type ImportantDate @table {
+  date: Date!
+  type: String!
+  description: String
+  application: Application
+}
+
+type Attachment @table {
+  fileName: String!
+  fileUrl: String!
+  description: String
+  application: Application
+}

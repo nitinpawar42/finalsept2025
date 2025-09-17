@@ -1,0 +1,24 @@
+---
+import ResellerSideNav from '../components/ResellerSideNav.astro';
+const { title } = Astro.props;
+---
+
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width" />
+  <title>{title} - Reseller</title>
+</head>
+<body class="bg-gray-100 dark:bg-gray-900">
+  <div class="flex">
+    <ResellerSideNav />
+    <main class="flex-1 p-8">
+      <h1 class="text-3xl font-bold text-gray-800 dark:text-gray-200">{title}</h1>
+      <div class="mt-8">
+        <slot />
+      </div>
+    </main>
+  </div>
+</body>
+</html>

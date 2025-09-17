@@ -1,0 +1,85 @@
+---
+import { getFirestore, collection, query, where, getDocs, doc, getDoc } from 'firebase/firestore';
+import { getAuth } from 'firebase/auth';
+import { getApps, initializeApp } from 'firebase/app';
+
+const firebaseConfig = {
+  apiKey: "AIzaSyABOmg9FZo711ujsPCb7XOupDM4wh-Av9o",
+  authDomain: "recent2025-8c891.firebaseapp.com",
+  projectId: "recent2025-8c891",
+  storageBucket: "recent2025-8c891.firebasestorage.app",
+  messagingSenderId: "815105434520",
+  appId: "1:815105434520:web:833e4efb0224c9289e81ed"
+};
+
+if (!getApps().length) {
+  initializeApp(firebaseConfig);
+}
+
+const db = getFirestore();
+const auth = getAuth();
+
+let cartItems = [];
+let userId = null;
+
+// This part will now be handled on the client-side to get the currently logged-in user
+---
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Shopping Cart</title>
+</head>
+<body>
+  <h1>Your Shopping Cart</h1>
+  <div id="cart-container"></div>
+
+  <a href="/checkout">Proceed to Checkout</a>
+
+  <script define:vars={{ db, auth }}>
+    const cartContainer = document.getElementById('cart-container');
+
+    auth.onAuthStateChanged(async (user) => {
+      if (user) {
+        userId = user.uid;
+        const cartRef = collection(db, 'cart');
+        const q = query(cartRef, where("userId", "==", userId));
+        const querySnapshot = await getDocs(q);
+
+        if (querySnapshot.empty) {
+          cartContainer.innerHTML = '<p>Your cart is empty.</p>';
+        } else {
+          const items = await Promise.all(querySnapshot.docs.map(async (cartDoc) => {
+            const cartItem = cartDoc.data();
+            const productRef = doc(db, "products", cartItem.productId);
+            const productSnap = await getDoc(productRef);
+            const product = productSnap.data();
+            return `
+              <li key=${cartDoc.id}>
+                ${product.name} - Quantity: ${cartItem.quantity}
+                <button onclick="removeItem('${cartDoc.id}')">Remove</button>
+              </li>
+            `;
+          }));
+          cartContainer.innerHTML = `<ul>${items.join('')}</ul>`;
+        }
+      } else {
+        cartContainer.innerHTML = '<p>Please log in to view your cart.</p>';
+      }
+    });
+
+    async function removeItem(cartItemId) {
+      await fetch('/api/cart/remove', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ cartItemId })
+      });
+      location.reload();
+    }
+  </script>
+</body>
+</html>

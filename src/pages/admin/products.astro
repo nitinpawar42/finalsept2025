@@ -1,0 +1,71 @@
+---
+import AdminLayout from '../../layouts/AdminLayout.astro';
+import { db } from '../../firebase/admin.js';
+import { getAuth } from "firebase-admin/auth";
+
+const auth = getAuth();
+
+// This is a placeholder for getting the current user's ID.
+// In a real application, you would get this from the user's session.
+const userId = Astro.locals.user.uid;
+
+const resellerRef = db.collection('resellers').doc(userId);
+const productsRef = resellerRef.collection('products');
+const productsSnapshot = await productsRef.get();
+const productIds = productsSnapshot.docs.map(doc => doc.id);
+
+let products = [];
+if (productIds.length > 0) {
+  const productsCollectionRef = db.collection('products');
+  const productsQuery = await productsCollectionRef.where('__name__', 'in', productIds).get();
+  products = productsQuery.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+}
+---
+
+<AdminLayout title="My Products">
+  <div class="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md">
+    <table class="w-full table-auto">
+      <thead>
+        <tr class="bg-gray-200 dark:bg-gray-700">
+          <th class="px-4 py-2">Name</th>
+          <th class="px-4 py-2">Price</th>
+          <th class="px-4 py-2">Stock</th>
+          <th class="px-4 py-2">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {products.map(product => (
+          <tr class="border-b dark:border-gray-700">
+            <td class="px-4 py-2">{product.name}</td>
+            <td class="px-4 py-2">${product.price.toFixed(2)}</td>
+            <td class="px-4 py-2">{product.stock}</td>
+            <td class="px-4 py-2">
+              <button class="remove-btn bg-red-500 text-white font-bold py-1 px-3 rounded-lg hover:bg-red-700" data-product-id={product.id}>Remove</button>
+            </td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  </div>
+</AdminLayout>
+
+<script>
+  document.addEventListener('click', async (e) => {
+    if (e.target && e.target.classList.contains('remove-btn')) {
+      const productId = e.target.dataset.productId;
+      const response = await fetch('/api/remove-product', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ productId })
+      });
+
+      if (response.ok) {
+        window.location.reload();
+      } else {
+        alert('Failed to remove product. Please try again.');
+      }
+    }
+  });
+</script>

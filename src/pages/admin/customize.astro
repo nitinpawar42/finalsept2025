@@ -1,0 +1,56 @@
+---
+import AdminLayout from '../../layouts/AdminLayout.astro';
+import { db } from '../../firebase/admin';
+import { getAuth } from 'firebase-admin/auth';
+
+const auth = getAuth();
+const userId = Astro.locals.user.uid;
+const resellerRef = db.collection('resellers').doc(userId);
+const resellerDoc = await resellerRef.get();
+const resellerData = resellerDoc.data() || {};
+---
+
+<AdminLayout title="Customize Your Page">
+  <div class="bg-white dark:bg-gray-800 p-8 rounded-lg shadow-md">
+    <h2 class="text-2xl font-bold mb-6 text-gray-800 dark:text-gray-200">Customize Your Public Page</h2>
+    <form id="customize-form">
+      <div class="mb-4">
+        <label for="name" class="block text-gray-700 dark:text-gray-300 font-bold mb-2">Name</label>
+        <input type="text" id="name" name="name" class="w-full px-3 py-2 border rounded-lg text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 focus:outline-none focus:border-indigo-500" value={resellerData.name || ''}>
+      </div>
+      <div class="mb-4">
+        <label for="bio" class="block text-gray-700 dark:text-gray-300 font-bold mb-2">Bio</label>
+        <textarea id="bio" name="bio" rows="4" class="w-full px-3 py-2 border rounded-lg text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 focus:outline-none focus:border-indigo-500">{resellerData.bio || ''}</textarea>
+      </div>
+      <div class="mb-4">
+        <label for="banner-image" class="block text-gray-700 dark:text-gray-300 font-bold mb-2">Banner Image URL</label>
+        <input type="text" id="banner-image" name="banner-image" class="w-full px-3 py-2 border rounded-lg text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 focus:outline-none focus:border-indigo-500" value={resellerData.bannerImage || ''}>
+      </div>
+      <button type="submit" class="bg-indigo-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-indigo-700">Save Changes</button>
+    </form>
+  </div>
+
+  <script>
+    const form = document.getElementById('customize-form');
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const name = form.name.value;
+      const bio = form.bio.value;
+      const bannerImage = form['banner-image'].value;
+
+      const response = await fetch('/api/update-profile', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ name, bio, bannerImage })
+      });
+
+      if (response.ok) {
+        alert('Profile updated successfully!');
+      } else {
+        alert('Failed to update profile. Please try again.');
+      }
+    });
+  </script>
+</AdminLayout>

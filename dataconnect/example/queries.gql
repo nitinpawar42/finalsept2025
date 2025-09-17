@@ -1,0 +1,57 @@
+mutation CreateApplication($data: Application_Data!) @auth(level: USER) {
+  application_insert(data: $data)
+}
+
+query GetApplication($id: UUID!) @auth(level: USER) {
+  application(id: $id) {
+    id
+    title
+    description
+    organization
+    submissionDeadline
+    createdAt
+    link
+    notes
+    status {
+      id
+      name
+    }
+    applicationType {
+      id
+      name
+    }
+    user {
+      id
+      displayName
+      email
+      photoUrl
+      createdAt
+    }
+    attachments_on_application {
+      id
+      fileName
+      fileUrl
+      description
+    }
+    importantDates_on_application {
+      id
+      date
+      type
+      description
+    }
+  }
+}
+
+query ListApplications @auth(level: USER) {
+  applications {
+    id
+    title
+    description
+    organization
+    submissionDeadline
+  }
+}
+
+mutation UpdateApplication($id: UUID!, $data: Application_Data!) @auth(level: USER) {
+  application_update(id: $id, data: $data)
+}
