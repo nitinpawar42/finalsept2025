@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # Kitchen Sink: Microfrontends with Astro
 
 ```sh
@@ -11,3 +12,6 @@ npm create astro@latest -- --template framework-multiple
 This example showcases Astro's built-in support for multiple frameworks ([React](https://react.dev), [Preact](https://preactjs.com), [Svelte](https://svelte.dev), and [Vue (`v3.x`)](https://v3.vuejs.org/)).
 
 No configuration is needed to enable these frameworks—just start writing components in `src/components`.
+=======
+# finalsept2025
+>>>>>>> d0d2b4cb365415e450aa7bd1de453fb89c8b2a27
