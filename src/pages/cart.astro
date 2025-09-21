@@ -1,85 +1,111 @@
 ---
-import { getFirestore, collection, query, where, getDocs, doc, getDoc } from 'firebase/firestore';
-import { getAuth } from 'firebase/auth';
-import { getApps, initializeApp } from 'firebase/app';
-
-const firebaseConfig = {
-  apiKey: "AIzaSyABOmg9FZo711ujsPCb7XOupDM4wh-Av9o",
-  authDomain: "recent2025-8c891.firebaseapp.com",
-  projectId: "recent2025-8c891",
-  storageBucket: "recent2025-8c891.firebasestorage.app",
-  messagingSenderId: "815105434520",
-  appId: "1:815105434520:web:833e4efb0224c9289e81ed"
-};
-
-if (!getApps().length) {
-  initializeApp(firebaseConfig);
-}
-
-const db = getFirestore();
-const auth = getAuth();
-
-let cartItems = [];
-let userId = null;
-
-// This part will now be handled on the client-side to get the currently logged-in user
+import PublicLayout from '../layouts/PublicLayout.astro';
 ---
 
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Shopping Cart</title>
-</head>
-<body>
-  <h1>Your Shopping Cart</h1>
-  <div id="cart-container"></div>
+<PublicLayout title="Shopping Cart">
+  <div class="container mx-auto">
+    <h1 class="text-3xl font-bold mb-8">Your Shopping Cart</h1>
 
-  <a href="/checkout">Proceed to Checkout</a>
+    <div id="cart-container" class="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md">
+      <!-- Cart items will be dynamically inserted here -->
+    </div>
 
-  <script define:vars={{ db, auth }}>
+    <div class="mt-8 flex justify-end">
+        <a href="#" id="checkout-link" class="bg-green-500 text-white font-bold py-3 px-6 rounded-lg hover:bg-green-600 transition-colors duration-300">Proceed to Checkout</a>
+    </div>
+
+  </div>
+
+  <script>
     const cartContainer = document.getElementById('cart-container');
+    const checkoutLink = document.getElementById('checkout-link');
 
-    auth.onAuthStateChanged(async (user) => {
-      if (user) {
-        userId = user.uid;
-        const cartRef = collection(db, 'cart');
-        const q = query(cartRef, where("userId", "==", userId));
-        const querySnapshot = await getDocs(q);
-
-        if (querySnapshot.empty) {
-          cartContainer.innerHTML = '<p>Your cart is empty.</p>';
-        } else {
-          const items = await Promise.all(querySnapshot.docs.map(async (cartDoc) => {
-            const cartItem = cartDoc.data();
-            const productRef = doc(db, "products", cartItem.productId);
-            const productSnap = await getDoc(productRef);
-            const product = productSnap.data();
-            return `
-              <li key=${cartDoc.id}>
-                ${product.name} - Quantity: ${cartItem.quantity}
-                <button onclick="removeItem('${cartDoc.id}')">Remove</button>
-              </li>
-            `;
-          }));
-          cartContainer.innerHTML = `<ul>${items.join('')}</ul>`;
-        }
-      } else {
-        cartContainer.innerHTML = '<p>Please log in to view your cart.</p>';
+    function renderCart() {
+      const cart = JSON.parse(localStorage.getItem('cart')) || [];
+      const resellerId = localStorage.getItem('resellerId');
+      
+      if (cart.length === 0) {
+        cartContainer.innerHTML = '<p class="text-center text-gray-500">Your cart is empty.</p><div class="text-center mt-4"><a href="/" class="text-indigo-500 hover:underline">Continue Shopping</a></div>';
+        checkoutLink.classList.add('hidden');
+        return;
       }
+
+      let cartHTML = '';
+      let subtotal = 0;
+
+      cart.forEach(item => {
+        const itemTotal = item.price * item.quantity;
+        subtotal += itemTotal;
+        cartHTML += `
+          <div class="cart-item flex items-center justify-between border-b pb-4 mb-4">
+            <div class="flex items-center">
+              <img src="${item.image}" alt="${item.name}" class="w-20 h-20 object-cover rounded-md mr-4">
+              <div>
+                <h3 class="text-lg font-bold">${item.name}</h3>
+                <p class="text-gray-600 dark:text-gray-400">₹${item.price.toFixed(2)}</p>
+              </div>
+            </div>
+            <div class="flex items-center">
+                <input type="number" min="1" value="${item.quantity}" data-id="${item.id}" class="quantity-input w-16 px-2 py-1 border rounded-md mr-4 text-center">
+                <p class="font-bold w-24 text-right">₹${itemTotal.toFixed(2)}</p>
+                <button class="remove-item-btn text-red-500 hover:underline ml-4" data-id="${item.id}">Remove</button>
+            </div>
+          </div>
+        `;
+      });
+
+      cartHTML += `
+        <div class="text-right">
+          <p class="text-xl font-bold">Subtotal: ₹${subtotal.toFixed(2)}</p>
+        </div>
+      `;
+
+      cartContainer.innerHTML = cartHTML;
+      checkoutLink.classList.remove('hidden');
+      checkoutLink.setAttribute('href', `/checkout?resellerId=${resellerId}`);
+    }
+
+    function updateQuantity(productId, quantity) {
+        let cart = JSON.parse(localStorage.getItem('cart')) || [];
+        const item = cart.find(i => i.id === productId);
+        if (item) {
+            item.quantity = quantity;
+        }
+        localStorage.setItem('cart', JSON.stringify(cart));
+        renderCart();
+        window.dispatchEvent(new CustomEvent('cart-updated'));
+    }
+
+    function removeItem(productId) {
+        let cart = JSON.parse(localStorage.getItem('cart')) || [];
+        cart = cart.filter(i => i.id !== productId);
+        localStorage.setItem('cart', JSON.stringify(cart));
+        if (cart.length === 0) {
+            localStorage.removeItem('resellerId');
+        }
+        renderCart();
+        window.dispatchEvent(new CustomEvent('cart-updated'));
+    }
+
+    cartContainer.addEventListener('change', (e) => {
+        if (e.target.classList.contains('quantity-input')) {
+            const productId = e.target.dataset.id;
+            const quantity = parseInt(e.target.value);
+            if (quantity > 0) {
+                 updateQuantity(productId, quantity);
+            }
+        }
+    });
+    
+    cartContainer.addEventListener('click', (e) => {
+        if (e.target.classList.contains('remove-item-btn')) {
+            const productId = e.target.dataset.id;
+            removeItem(productId);
+        }
     });
 
-    async function removeItem(cartItemId) {
-      await fetch('/api/cart/remove', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ cartItemId })
-      });
-      location.reload();
-    }
+    document.addEventListener('DOMContentLoaded', renderCart);
+    window.addEventListener('storage', renderCart);
+
   </script>
-</body>
-</html>
+</PublicLayout>

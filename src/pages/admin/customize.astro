@@ -1,13 +1,14 @@
 ---
 import AdminLayout from '../../layouts/AdminLayout.astro';
 import { db } from '../../firebase/admin';
-import { getAuth } from 'firebase-admin/auth';
 
-const auth = getAuth();
-const userId = Astro.locals.user.uid;
-const resellerRef = db.collection('resellers').doc(userId);
-const resellerDoc = await resellerRef.get();
-const resellerData = resellerDoc.data() || {};
+let resellerData = {};
+if (Astro.locals.user) {
+    const userId = Astro.locals.user.uid;
+    const resellerRef = db.collection('resellers').doc(userId);
+    const resellerDoc = await resellerRef.get();
+    resellerData = resellerDoc.data() || {};
+}
 ---
 
 <AdminLayout title="Customize Your Page">

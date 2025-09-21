@@ -1,0 +1,154 @@
+
+
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reseller Registration</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <style>
+        /* Custom styles for a modern look */
+        body {
+            background-color: #f3f4f6;
+        }
+        .form-container {
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 40px;
+            background-color: #ffffff;
+            border-radius: 12px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+        }
+        .form-title {
+            font-size: 2.5rem;
+            font-weight: 800;
+            color: #1a202c;
+            margin-bottom: 30px;
+            text-align: center;
+        }
+        .form-input, .form-textarea {
+            width: 100%;
+            padding: 15px;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            transition: all 0.3s ease;
+        }
+        .form-input:focus, .form-textarea:focus {
+            outline: none;
+            border-color: #4a90e2;
+            box-shadow: 0 0 0 3px rgba(74, 144, 226, 0.2);
+        }
+        .form-label {
+            font-weight: 600;
+            color: #4a5568;
+            margin-bottom: 8px;
+            display: block;
+        }
+        .form-checkbox-label {
+            color: #4a5568;
+        }
+        .submit-button {
+            width: 100%;
+            padding: 15px;
+            background-color: #4a90e2;
+            color: #ffffff;
+            border: none;
+            border-radius: 8px;
+            font-size: 1.2rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+        .submit-button:hover {
+            background-color: #357abd;
+        }
+        .message {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 8px;
+        }
+        .message.success {
+            background-color: #d4edda;
+            color: #155724;
+        }
+        .message.error {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+    </style>
+</head>
+<body>
+    <div class="form-container">
+        <h2 class="form-title">Reseller Registration</h2>
+        <form id="reseller-form" class="space-y-6">
+            <div>
+                <label class="form-label" for="fullName">Full Name</label>
+                <input class="form-input" type="text" name="fullName" id="fullName" placeholder="Enter your full name" required>
+            </div>
+            <div>
+                <label class="form-label" for="email">Email</label>
+                <input class="form-input" type="email" name="email" id="email" placeholder="Enter your email address" required>
+            </div>
+            <div>
+                <label class="form-label" for="mobile">Mobile Number</label>
+                <input class="form-input" type="text" name="mobile" id="mobile" placeholder="Enter your mobile number" required>
+            </div>
+            <div>
+                <label class="form-label" for="address">Address</label>
+                <textarea class="form-textarea" name="address" id="address" placeholder="Enter your full address with zip code" required></textarea>
+            </div>
+            <div>
+                <label class="form-label" for="profilePhoto">Profile Photo</label>
+                <input class="form-input" type="file" name="profilePhoto" id="profilePhoto" required accept="image/*">
+            </div>
+            <div>
+                <label class="form-label" for="aadharCard">Aadhar Card</label>
+                <input class="form-input" type="file" name="aadharCard" id="aadharCard" required accept="image/*,.pdf">
+            </div>
+            <div>
+                <label class="form-label" for="panCard">PAN Card</label>
+                <input class="form-input" type="file" name="panCard" id="panCard" required accept="image/*,.pdf">
+            </div>
+            <div class="flex items-center">
+                <input class="form-checkbox" type="checkbox" name="agree" id="agree" required>
+                <label class="ml-2 form-checkbox-label" for="agree">I agree to the terms & conditions</label>
+            </div>
+            <button class="submit-button" type="submit">Submit</button>
+        </form>
+        <div id="message" class="message" style="display: none;"></div>
+    </div>
+
+    <script>
+        document.getElementById('reseller-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const form = e.target;
+            const formData = new FormData(form);
+            const messageDiv = document.getElementById('message');
+
+            try {
+                const res = await fetch('/api/reseller/register', {
+                    method: 'POST',
+                    body: formData,
+                });
+
+                const data = await res.json();
+
+                if (res.ok) {
+                    messageDiv.textContent = data.message;
+                    messageDiv.className = 'message success';
+                    form.reset();
+                } else {
+                    messageDiv.textContent = data.message || 'Something went wrong, please try again.';
+                    messageDiv.className = 'message error';
+                }
+            } catch (error) {
+                messageDiv.textContent = 'Error submitting form: ' + error.message;
+                messageDiv.className = 'message error';
+            }
+
+            messageDiv.style.display = 'block';
+        });
+    </script>
+</body>
+</html>

@@ -1,86 +1,98 @@
 ---
 import AdminLayout from '../../layouts/AdminLayout.astro';
-import { getFirestore, collection, getDocs, query, where, doc, updateDoc } from 'firebase/firestore';
-import { getApps, initializeApp } from 'firebase/app';
 
-const firebaseConfig = {
-  apiKey: "AIzaSyABOmg9FZo711ujsPCb7XOupDM4wh-Av9o",
-  authDomain: "recent2025-8c891.firebaseapp.com",
-  projectId: "recent2025-8c891",
-  storageBucket: "recent2025-8c891.firebasestorage.app",
-  messagingSenderId: "815105434520",
-  appId: "1:815105434520:web:833e4efb0224c9289e81ed"
-};
-
-if (!getApps().length) {
-  initializeApp(firebaseConfig);
-}
-
-const db = getFirestore();
-
-const q = query(collection(db, "users"), where("resellerApprovalStatus", "==", "pending"));
-const querySnapshot = await getDocs(q);
-const pendingResellers = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+// Fetch pending resellers from the API endpoint
+const response = await fetch(`${Astro.url.origin}/api/reseller-approval`);
+const pendingResellers = await response.json();
 ---
 
 <AdminLayout title="Reseller Approvals">
-  <div class="bg-white dark:bg-gray-800 shadow-md rounded-lg p-6">
-    <h2 class="text-2xl font-bold mb-4 text-gray-800 dark:text-gray-200">Pending Reseller Approvals</h2>
-    <div class="overflow-x-auto">
-      <table class="min-w-full bg-white dark:bg-gray-800">
-        <thead class="bg-gray-200 dark:bg-gray-700">
-          <tr>
-            <th class="py-3 px-6 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-300">Full Name</th>
-            <th class="py-3 px-6 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-300">Email</th>
-            <th class="py-3 px-6 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-300">PAN</th>
-            <th class="py-3 px-6 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-300">Mobile</th>
-            <th class="py-3 px-6 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-300">Actions</th>
-          </tr>
-        </thead>
-        <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
-          {pendingResellers.map(reseller => (
-            <tr key={reseller.id}>
-              <td class="py-4 px-6 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-gray-200">{reseller.resellerDetails.fullName}</td>
-              <td class="py-4 px-6 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">{reseller.email}</td>
-              <td class="py-4 px-6 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">{reseller.resellerDetails.pan}</td>
-              <td class="py-4 px-6 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">{reseller.resellerDetails.mobile}</td>
-              <td class="py-4 px-6 whitespace-nowrap text-sm font-medium">
-                <button class="text-indigo-600 hover:text-indigo-900 approve-btn" data-id={reseller.id}>Approve</button>
-                <button class="text-red-600 hover:text-red-900 ml-4 reject-btn" data-id={reseller.id}>Reject</button>
-              </td>
+  <div class="p-6 bg-white dark:bg-gray-800 shadow-md rounded-lg">
+    <h2 class="text-2xl font-bold mb-6 text-gray-800 dark:text-gray-200">Pending Reseller Approvals</h2>
+    {pendingResellers.length > 0 ? (
+      <div class="overflow-x-auto">
+        <table class="min-w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
+          <thead class="bg-gray-100 dark:bg-gray-700">
+            <tr>
+              <th class="py-3 px-6 text-left text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">Full Name</th>
+              <th class="py-3 px-6 text-left text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">Email</th>
+              <th class="py-3 px-6 text-left text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">PAN</th>
+              <th class="py-3 px-6 text-left text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">Mobile</th>
+              <th class="py-3 px-6 text-center text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">Actions</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+          </thead>
+          <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
+            {pendingResellers.map(reseller => (
+              <tr key={reseller.id} class="hover:bg-gray-50 dark:hover:bg-gray-700">
+                <td class="py-4 px-6 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-gray-200">{reseller.resellerDetails?.fullName || 'N/A'}</td>
+                <td class="py-4 px-6 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">{reseller.email}</td>
+                <td class="py-4 px-6 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">{reseller.resellerDetails?.pan || 'N/A'}</td>
+                <td class="py-4 px-6 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">{reseller.resellerDetails?.mobile || 'N/A'}</td>
+                <td class="py-4 px-6 whitespace-nowrap text-center text-sm font-medium">
+                  <button class="text-green-600 hover:text-green-800 font-semibold py-1 px-3 rounded-md bg-green-100 hover:bg-green-200 dark:bg-green-900 dark:text-green-300 dark:hover:bg-green-800 transition-colors approve-btn" data-id={reseller.id}>Approve</button>
+                  <button class="text-red-600 hover:text-red-800 font-semibold py-1 px-3 rounded-md bg-red-100 hover:bg-red-200 dark:bg-red-900 dark:text-red-300 dark:hover:bg-red-800 transition-colors ml-2 reject-btn" data-id={reseller.id}>Reject</button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    ) : (
+      <p class="text-center text-gray-500 dark:text-gray-400 py-8">No pending reseller approvals at the moment.</p>
+    )}
   </div>
 
   <script>
-    const db = getFirestore();
+    document.addEventListener('click', async (event) => {
+      const target = event.target;
+      const button = target.closest('.approve-btn, .reject-btn');
 
-    document.querySelectorAll('.approve-btn').forEach(button => {
-      button.addEventListener('click', async (e) => {
-        const resellerId = e.target.dataset.id;
-        const resellerRef = doc(db, "users", resellerId);
-        await updateDoc(resellerRef, {
-          resellerApprovalStatus: "approved"
-        });
-        e.target.closest('tr').remove();
-      });
-    });
+      if (!button) return;
 
-    document.querySelectorAll('.reject-btn').forEach(button => {
-      button.addEventListener('click', async (e) => {
-        const resellerId = e.target.dataset.id;
-        const reason = prompt("Please provide a reason for rejection:");
-        if (reason) {
-          const resellerRef = doc(db, "users", resellerId);
-          await updateDoc(resellerRef, {
-            resellerApprovalStatus: "rejected"
-          });
-          e.target.closest('tr').remove();
+      const resellerId = button.dataset.id;
+      const action = button.classList.contains('approve-btn') ? 'approve' : 'reject';
+      let reason = null;
+
+      if (action === 'reject') {
+        reason = prompt("Please provide a reason for rejection:");
+        if (reason === null) return; // User cancelled the prompt
+        if (!reason.trim()) {
+            alert("Rejection reason cannot be empty.");
+            return;
         }
-      });
+      }
+
+      // Disable buttons to prevent multiple clicks
+      button.closest('td').querySelectorAll('button').forEach(b => b.disabled = true);
+
+      try {
+        const response = await fetch('/api/reseller-approval', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ uid: resellerId, action, reason }),
+        });
+
+        const result = await response.json();
+
+        if (response.ok) {
+          // On success, remove the row from the table
+          button.closest('tr').remove();
+          // Check if the table is now empty
+          if (document.querySelector('tbody').children.length === 0) {
+            const container = document.querySelector('.overflow-x-auto');
+            container.innerHTML = `<p class="text-center text-gray-500 dark:text-gray-400 py-8">No pending reseller approvals at the moment.</p>`;
+          }
+        } else {
+          alert(`Error: ${result.message}`);
+          // Re-enable buttons on failure
+          button.closest('td').querySelectorAll('button').forEach(b => b.disabled = false);
+        }
+      } catch (error) {
+        console.error('Failed to process reseller action:', error);
+        alert('An error occurred. Please check the console and try again.');
+        // Re-enable buttons on error
+        button.closest('td').querySelectorAll('button').forEach(b => b.disabled = false);
+      }
     });
   </script>
 </AdminLayout>

@@ -1,23 +1,87 @@
 ---
 import AdminLayout from '../../layouts/AdminLayout.astro';
-import { db } from '../../firebase/admin.js';
+import SalesChart from '../../components/SalesChart.jsx';
+import TopProductsChart from '../../components/TopProductsChart.jsx';
+import TopResellersTable from '../../components/TopResellersTable.jsx';
+import { db } from '../../firebase/admin';
 
-const resellersSnapshot = await db.collection('resellers').get();
-const totalResellers = resellersSnapshot.size;
-
-const productsSnapshot = await db.collection('products').get();
-const totalProducts = productsSnapshot.size;
+const usersRef = db.collection('users');
+const pendingResellersSnapshot = await usersRef.where('role', '==', 'reseller').where('approvalStatus', '==', 'pending').get();
+const pendingResellers = pendingResellersSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 ---
 
-<AdminLayout title="Dashboard">
-  <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+<AdminLayout title="Admin Dashboard">
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
     <div class="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md">
-      <h2 class="text-xl font-bold text-gray-800 dark:text-gray-200">Total Resellers</h2>
-      <p class="text-4xl font-bold text-blue-500 mt-4">{totalResellers}</p>
+      <h2 class="text-2xl font-bold mb-4">Sales Over Time</h2>
+      <SalesChart client:load />
     </div>
     <div class="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md">
-      <h2 class="text-xl font-bold text-gray-800 dark:text-gray-200">Total Products</h2>
-      <p class="text-4xl font-bold text-green-500 mt-4">{totalProducts}</p>
+      <h2 class="text-2xl font-bold mb-4">Top Selling Products</h2>
+      <TopProductsChart client:load />
+    </div>
+    <div class="lg:col-span-2 bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md">
+      <h2 class="text-2xl font-bold mb-4">Top Performing Resellers</h2>
+      <TopResellersTable client:load />
+    </div>
+    <div class="lg:col-span-2 bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md">
+      <h2 class="text-2xl font-bold mb-4">Pending Reseller Approvals</h2>
+      <div class="overflow-x-auto">
+        <table class="w-full table-auto">
+          <thead>
+            <tr class="bg-gray-200 dark:bg-gray-700">
+              <th class="px-4 py-2">Full Name</th>
+              <th class="px-4 py-2">Email</th>
+              <th class="px-4 py-2">PAN</th>
+              <th class="px-4 py-2">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {pendingResellers.map(reseller => (
+              <tr class="border-b dark:border-gray-700">
+                <td class="px-4 py-2">{reseller.resellerDetails.fullName}</td>
+                <td class="px-4 py-2">{reseller.email}</td>
+                <td class="px-4 py-2">{reseller.resellerDetails.pan}</td>
+                <td class="px-4 py-2">
+                  <button class="approve-btn bg-green-500 text-white font-bold py-1 px-3 rounded-lg hover:bg-green-700" data-uid={reseller.id}>Approve</button>
+                  <button class="reject-btn bg-red-500 text-white font-bold py-1 px-3 rounded-lg hover:bg-red-700 ml-2" data-uid={reseller.id}>Reject</button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   </div>
+
+  <script>
+    document.addEventListener('click', async (e) => {
+      const target = e.target as HTMLElement;
+      if (target.classList.contains('approve-btn') || target.classList.contains('reject-btn')) {
+        const uid = target.dataset.uid;
+        const action = target.classList.contains('approve-btn') ? 'approve' : 'reject';
+        let reason = '';
+
+        if (action === 'reject') {
+          reason = prompt('Please provide a reason for rejection:');
+          if (!reason) return; // User cancelled the prompt
+        }
+
+        const response = await fetch('/api/reseller-approval', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ uid, action, reason })
+        });
+
+        if (response.ok) {
+          window.location.reload();
+        } else {
+          const error = await response.json();
+          alert(`Action failed: ${error.message}`);
+        }
+      }
+    });
+  </script>
 </AdminLayout>

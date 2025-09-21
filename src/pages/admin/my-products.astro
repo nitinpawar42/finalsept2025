@@ -1,24 +1,20 @@
 ---
 import AdminLayout from '../../layouts/AdminLayout.astro';
 import { db } from '../../firebase/admin.js';
-import { getAuth } from "firebase-admin/auth";
-
-const auth = getAuth();
-
-// This is a placeholder for getting the current user's ID.
-// In a real application, you would get this from the user's session.
-const userId = Astro.locals.user.uid;
-
-const resellerRef = db.collection('resellers').doc(userId);
-const productsRef = resellerRef.collection('products');
-const productsSnapshot = await productsRef.get();
-const productIds = productsSnapshot.docs.map(doc => doc.id);
 
 let products = [];
-if (productIds.length > 0) {
-  const productsCollectionRef = db.collection('products');
-  const productsQuery = await productsCollectionRef.where('__name__', 'in', productIds).get();
-  products = productsQuery.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+if (Astro.locals.user) {
+    const userId = Astro.locals.user.uid;
+    const resellerRef = db.collection('resellers').doc(userId);
+    const productsRef = resellerRef.collection('products');
+    const productsSnapshot = await productsRef.get();
+    const productIds = productsSnapshot.docs.map(doc => doc.id);
+
+    if (productIds.length > 0) {
+      const productsCollectionRef = db.collection('products');
+      const productsQuery = await productsCollectionRef.where('__name__', 'in', productIds).get();
+      products = productsQuery.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    }
 }
 ---
 

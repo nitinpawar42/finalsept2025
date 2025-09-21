@@ -1,195 +1,239 @@
 ---
-import { getFirestore, collection, query, where, getDocs, doc, getDoc } from 'firebase/firestore';
-import { getAuth } from 'firebase/auth';
-import { getApps, initializeApp } from 'firebase/app';
+import PublicLayout from '../layouts/PublicLayout.astro';
+import { db } from '../firebase/admin';
 
-const firebaseConfig = {
-  apiKey: "AIzaSyABOmg9FZo711ujsPCb7XOupDM4wh-Av9o",
-  authDomain: "recent2025-8c891.firebaseapp.com",
-  projectId: "recent2025-8c891",
-  storageBucket: "recent2025-8c891.firebasestorage.app",
-  messagingSenderId: "815105434520",
-  appId: "1:815105434520:web:833e4efb0224c9289e81ed"
-};
+const resellerId = Astro.url.searchParams.get('resellerId');
 
-if (!getApps().length) {
-  initializeApp(firebaseConfig);
+// Basic validation
+if (!resellerId) {
+    return Astro.redirect('/cart');
 }
 
-const db = getFirestore();
-const auth = getAuth();
+// Fetch Reseller's customer to let the user choose an existing customer profile
+const customersRef = db.collection('customers').where('resellerId', '==', resellerId);
+const customersSnapshot = await customersRef.get();
+const customers = customersSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
 ---
 
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Checkout</title>
-  <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
-</head>
-<body>
-  <h1>Checkout</h1>
-  <div>
-    <label for="customer">Select a customer:</label>
-    <select id="customer"></select>
-  </div>
-  <div>
-    <label for="pincode">Enter your pincode to calculate shipping:</label>
-    <input type="text" id="pincode" />
-    <button id="calculate-shipping">Calculate</button>
-    <p id="shipping-cost"></p>
-  </div>
-  <button id="rzp-button1">Pay with Razorpay</button>
+<PublicLayout title="Checkout">
+    <div class="container mx-auto">
+        <h1 class="text-3xl font-bold mb-8">Checkout</h1>
 
-  <script define:vars={{ db, auth }}>
-    const calculateShippingBtn = document.getElementById('calculate-shipping');
-    const pincodeInput = document.getElementById('pincode');
-    const shippingCostEl = document.getElementById('shipping-cost');
-    const payButton = document.getElementById('rzp-button1');
-    const customerSelect = document.getElementById('customer');
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <!-- Shipping Details Form -->
+            <div class="lg:col-span-2 bg-white dark:bg-gray-800 p-8 rounded-lg shadow-md">
+                <h2 class="text-2xl font-bold mb-6">Shipping Information</h2>
+                
+                <!-- Customer Selector -->
+                <div class="mb-6">
+                    <label for="customer-select" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Returning Customer?</label>
+                    <select id="customer-select" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md">
+                        <option value="">New Customer</option>
+                        {customers.map(customer => (
+                            <option value={JSON.stringify(customer)}>{customer.name} - {customer.email}</option>
+                        ))}
+                    </select>
+                </div>
 
-    let shippingCost = 0;
-    let cartItems = [];
-    let userId = null;
-    let totalAmount = 0;
-    let totalWeight = 0;
-    let totalLength = 0;
-    let totalBreadth = 0;
-    let totalHeight = 0;
-    const shippingAddress = "123, Main Street, Anytown, USA"; // This will be dynamic later
+                <form id="checkout-form">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <input type="text" name="name" placeholder="Full Name" class="w-full px-4 py-3 border rounded-lg bg-gray-50 dark:bg-gray-700" required>
+                        <input type="email" name="email" placeholder="Email Address" class="w-full px-4 py-3 border rounded-lg bg-gray-50 dark:bg-gray-700" required>
+                        <input type="tel" name="phone" placeholder="Phone Number" class="w-full px-4 py-3 border rounded-lg bg-gray-50 dark:bg-gray-700" required>
+                        <textarea name="address" placeholder="Full Shipping Address" class="w-full px-4 py-3 border rounded-lg md:col-span-2 bg-gray-50 dark:bg-gray-700" rows="3" required></textarea>
+                         <input type="text" name="pincode" placeholder="Pincode" class="w-full px-4 py-3 border rounded-lg bg-gray-50 dark:bg-gray-700" required>
+                    </div>
+                    <input type="hidden" name="resellerId" value={resellerId}>
+                    <button type="submit" id="payment-btn" class="mt-8 w-full bg-indigo-600 text-white font-bold py-4 px-6 rounded-lg hover:bg-indigo-700 transition-transform duration-300 transform hover:scale-105">Place Order & Pay</button>
+                </form>
+                 <p id="shipping-cost" class="mt-4 text-lg font-semibold text-center"></p>
+            </div>
 
+            <!-- Order Summary -->
+            <div class="bg-gray-50 dark:bg-gray-700 p-8 rounded-lg shadow-inner">
+                <h2 class="text-2xl font-bold mb-6">Order Summary</h2>
+                <div id="order-summary-container"></div>
+            </div>
+        </div>
+    </div>
 
-    auth.onAuthStateChanged(async (user) => {
-        if(user){
-            userId = user.uid;
-            const cartRef = collection(db, 'cart');
-            const q = query(cartRef, where("userId", "==", userId));
-            const querySnapshot = await getDocs(q);
-            cartItems = await Promise.all(querySnapshot.docs.map(async (cartDoc) => {
-                const cartItem = cartDoc.data();
-                const productRef = doc(db, "products", cartItem.productId);
-                const productSnap = await getDoc(productRef);
-                const product = productSnap.data();
-                totalAmount += product.price * cartItem.quantity;
-                totalWeight += product.weight * cartItem.quantity;
-                totalLength += product.length * cartItem.quantity;
-                totalBreadth += product.breadth * cartItem.quantity;
-                totalHeight += product.height * cartItem.quantity;
-                return { ...cartItem, product, id: cartDoc.id };
-            }));
+    <!-- Razorpay Script -->
+    <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
 
-            const customersRef = collection(db, 'customers');
-            const q2 = query(customersRef, where("resellerId", "==", userId));
-            const customersSnapshot = await getDocs(q2);
-            customersSnapshot.forEach((doc) => {
-              const customer = doc.data();
-              const option = document.createElement('option');
-              option.value = doc.id;
-              option.textContent = customer.name;
-              customerSelect.appendChild(option);
+    <script define:vars={{ resellerId, customers }}>
+        const orderSummaryContainer = document.getElementById('order-summary-container');
+        const checkoutForm = document.getElementById('checkout-form');
+        const paymentBtn = document.getElementById('payment-btn');
+        const customerSelect = document.getElementById('customer-select');
+        const shippingCostEl = document.getElementById('shipping-cost');
+
+        function renderOrderSummary() {
+            const cart = JSON.parse(localStorage.getItem('cart')) || [];
+            if (cart.length === 0) {
+                window.location.href = `/cart`;
+                return;
+            }
+
+            let summaryHTML = '<div class="space-y-4">';
+            let subtotal = 0;
+
+            cart.forEach(item => {
+                subtotal += item.price * item.quantity;
+                summaryHTML += `
+                    <div class="flex justify-between items-center">
+                        <div class="flex items-center">
+                           <img src="${item.image}" alt="${item.name}" class="w-12 h-12 object-cover rounded-md mr-4">
+                            <div>
+                                <p class="font-semibold">${item.name}</p>
+                                <p class="text-sm text-gray-500 dark:text-gray-400">x ${item.quantity}</p>
+                            </div>
+                        </div>
+                        <p>₹${(item.price * item.quantity).toFixed(2)}</p>
+                    </div>
+                `;
             });
+            summaryHTML += '</div>';
+            summaryHTML += `<div class="border-t mt-6 pt-6 space-y-2">
+                              <div class="flex justify-between font-semibold"><p>Subtotal</p><p>₹${subtotal.toFixed(2)}</p></div>
+                              <div id="shipping-line" class="flex justify-between font-semibold"><p>Shipping</p><p>...</p></div>
+                              <div class="flex justify-between text-xl font-bold"><p>Total</p><p id="total-price">₹${subtotal.toFixed(2)}</p></div>
+                           </div>`;
+
+            orderSummaryContainer.innerHTML = summaryHTML;
         }
-    });
 
+        function fillFormWithCustomerData(customer) {
+            checkoutForm.elements['name'].value = customer.name || '';
+            checkoutForm.elements['email'].value = customer.email || '';
+            checkoutForm.elements['phone'].value = customer.phone || '';
+            checkoutForm.elements['address'].value = customer.address || '';
+        }
 
-    calculateShippingBtn.addEventListener('click', async () => {
-        const response = await fetch('/api/calculate-shipping', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                weight: totalWeight,
-                length: totalLength,
-                breadth: totalBreadth,
-                height: totalHeight,
-                destinationPincode: pincodeInput.value
-            })
+        async function getShippingCost(pincode) {
+             shippingCostEl.textContent = 'Calculating shipping cost...';
+             document.getElementById('shipping-line').children[1].textContent = 'Calculating...';
+             
+             const cart = JSON.parse(localStorage.getItem('cart')) || [];
+             const totalWeight = cart.reduce((total, item) => total + (item.weight || 0.5) * item.quantity, 0); // Assuming a default weight if not present
+
+             try {
+                 const response = await fetch(`/api/shipping-cost`, {
+                     method: 'POST',
+                     headers: { 'Content-Type': 'application/json' },
+                     body: JSON.stringify({ pincode, weight: totalWeight })
+                 });
+                 
+                 if (!response.ok) throw new Error('Failed to fetch shipping cost.');
+                 
+                 const data = await response.json();
+                 const cost = data.cost;
+
+                 shippingCostEl.textContent = `Shipping Cost: ₹${cost.toFixed(2)}`;
+                 document.getElementById('shipping-line').children[1].textContent = `₹${cost.toFixed(2)}`;
+
+                 const subtotal = cart.reduce((total, item) => total + item.price * item.quantity, 0);
+                 const total = subtotal + cost;
+                 document.getElementById('total-price').textContent = `₹${total.toFixed(2)}`;
+
+                 return cost;
+
+             } catch (error) {
+                 console.error('Shipping Cost Error:', error);
+                 shippingCostEl.textContent = 'Could not calculate shipping cost.';
+                  document.getElementById('shipping-line').children[1].textContent = 'N/A';
+                 return null;
+             }
+        }
+
+        customerSelect.addEventListener('change', (e) => {
+            if (e.target.value) {
+                const customer = JSON.parse(e.target.value);
+                fillFormWithCustomerData(customer);
+                 if (customer.pincode) { // Assuming pincode is stored with customer
+                    checkoutForm.elements['pincode'].value = customer.pincode;
+                    getShippingCost(customer.pincode);
+                }
+            } else {
+                checkoutForm.reset();
+            }
         });
-        const data = await response.json();
-        shippingCost = data.shippingCost;
-        shippingCostEl.innerText = `Shipping Cost: ₹${shippingCost}`;
-        payButton.disabled = false;
-    });
 
-    payButton.disabled = true;
-
-    document.getElementById('rzp-button1').onclick = async function(e){
-        const finalAmount = totalAmount + shippingCost;
-        const customerId = customerSelect.value;
-
-        // Create an order in our database
-        const createOrderResponse = await fetch('/api/create-order', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ 
-                userId,
-                customerId,
-                cartItems, 
-                shippingAddress, 
-                totalAmount, 
-                shippingCost
-            })
-        });
-        const { orderId } = await createOrderResponse.json();
-
-        const response = await fetch('/api/create-razorpay-order', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ amount: finalAmount, orderId })
+         checkoutForm.elements['pincode'].addEventListener('blur', (e) => {
+            const pincode = e.target.value;
+            if (pincode && pincode.length === 6) {
+                getShippingCost(pincode);
+            }
         });
 
-        const order = await response.json();
 
-        var options = {
-            "key": "rzp_test_1DPQoVzVv4F1Zz", // Enter the Key ID generated from the Dashboard
-            "amount": order.amount, // Amount is in currency subunits. Default currency is INR.
-            "currency": "INR",
-            "name": "Your Company Name",
-            "description": "Test Transaction",
-            "image": "https://example.com/your_logo.jpg",
-            "order_id": order.id,
-            "handler": async function (response){
-                const verificationResponse = await fetch('/api/verify-payment', {
+        checkoutForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            paymentBtn.disabled = true;
+            paymentBtn.textContent = 'Processing...';
+
+            const formData = new FormData(checkoutForm);
+            const cart = JSON.parse(localStorage.getItem('cart')) || [];
+            const shippingCost = parseFloat(shippingCostEl.textContent.replace(/[^0-9.]/g, '')) || 0;
+
+            try {
+                const response = await fetch('/api/orders', {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
+                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        razorpay_payment_id: response.razorpay_payment_id,
-                        razorpay_order_id: response.razorpay_order_id,
-                        razorpay_signature: response.razorpay_signature,
-                        orderId
+                        cart,
+                        resellerId,
+                        shippingCost,
+                        customerDetails: {
+                            name: formData.get('name'),
+                            email: formData.get('email'),
+                            phone: formData.get('phone'),
+                            address: formData.get('address'),
+                            pincode: formData.get('pincode'),
+                        }
                     })
                 });
-                const verificationResult = await verificationResponse.json();
-                if (verificationResult.success) {
-                    window.location.href = '/confirmation';
-                } else {
-                    alert("Payment verification failed. Please try again.");
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.message || 'Failed to create order.');
                 }
-            },
-            "prefill": {
-                "name": "Gaurav Kumar",
-                "email": "gaurav.kumar@example.com",
-                "contact": "9999999999"
-            },
-            "notes": {
-                "address": "Razorpay Corporate Office"
-            },
-            "theme": {
-                "color": "#3399cc"
+
+                const orderData = await response.json();
+
+                const options = {
+                    key: orderData.razorpayKey,
+                    amount: orderData.amount,
+                    currency: "INR",
+                    name: "Reseller Platform",
+                    description: `Order #${orderData.receipt}`,
+                    order_id: orderData.id,
+                    handler: function (response){
+                        // On successful payment, redirect to a confirmation page
+                        localStorage.removeItem('cart');
+                        localStorage.removeItem('resellerId');
+                        window.location.href = `/confirmation?orderId=${orderData.receipt}`;
+                    },
+                    prefill: {
+                        name: formData.get('name'),
+                        email: formData.get('email'),
+                        contact: formData.get('phone')
+                    },
+                    theme: {
+                        color: "#3399cc"
+                    }
+                };
+
+                const rzp = new Razorpay(options);
+                rzp.open();
+
+            } catch (error) {
+                alert(`Error: ${error.message}`);
+                paymentBtn.disabled = false;
+                paymentBtn.textContent = 'Place Order & Pay';
             }
-        };
-        var rzp1 = new Razorpay(options);
-        rzp1.open();
-        e.preventDefault();
-    }
-  </script>
-</body>
-</html>
+        });
+
+        document.addEventListener('DOMContentLoaded', renderOrderSummary);
+    </script>
+</PublicLayout>
