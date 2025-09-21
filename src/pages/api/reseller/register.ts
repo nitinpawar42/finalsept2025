@@ -1,6 +1,6 @@
 
 import type { APIRoute } from 'astro';
-import { db } from '../../../../lib/firebase/admin'; // Import the initialized db
+import { db } from '../../../lib/firebase/admin'; // Import the initialized db
 
 export const POST: APIRoute = async ({ request }) => {
     try {
